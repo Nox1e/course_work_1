@@ -2,19 +2,26 @@
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
-
+#include <locale.h>
 
 // TODO: Реализовать ввод запятых.
 // TODO: Написать очистку памяти.
 
-char *string_Assemble();
+char *string_assemble();
 
-void remove_Replicated_Sentences();
+void remove_replicated_sentences();
 
 void remove_Sentence();
 
-void input_Text();
+void input_text();
 
+void remove_even_sentences();
+
+void uppercase_sort();
+
+void less_then_three();
+
+void max_len_word_sort();
 
 struct Word {
     char *arr;
@@ -51,15 +58,35 @@ struct Text text;
 
 //
 int main() {
-    input_Text();
-    remove_Replicated_Sentences();
+    input_text();
+    remove_replicated_sentences();
+    setlocale(LC_ALL, "RUS");
+    wprintf(L"Выберите одно из доступных действий:\n"
+            "1) Удалить все четные по счету предложения в которых четное количество слов.\n"
+            "2) Отсортировать все слова в предложениях по возрастанию количества букв в верхнем регистре в слове.\n"
+            "3) Заменить все слова в тексте длина которых не более 3 символов на подстроку “Less Then 3”.\n"
+            "4) Найти в каждом предложении строку максимальной длины, которая начинается и заканчивается цифрой. Вывести найденные подстроки по убыванию длины подстроки.\n");
+    int user_choice;
+    scanf("%d", &user_choice);
+
+    switch (user_choice) {
+        case 1:
+            remove_even_sentences();
+        case 2:
+            uppercase_sort();
+        case 3:
+            less_then_three();
+        case 4:
+            max_len_word_sort();
+    }
+
     for (int i = 0; i < text.sentences_cnt; i++) {
-        printf("%s", string_Assemble(text.arr[i]));
+        printf("%s ", string_assemble(text.arr[i]));
     }
     return 0;
 }
 
-char *string_Assemble(Sentence sentence) {
+char *string_assemble(Sentence sentence) {
     // Функция, которая будет собирать предложение в виде строки из массива слов структуры Sentence
     char *str = calloc(sentence.symb_cnt + 2, sizeof(char));
     int counter = -1;
@@ -75,7 +102,7 @@ char *string_Assemble(Sentence sentence) {
     return str;
 }
 
-void remove_Sentence(int pos) {
+void remove_sentence(int pos) {
     // Удаляет предложение из текста
     // TODO: (еще очищать память)
 
@@ -87,7 +114,7 @@ void remove_Sentence(int pos) {
     }
 }
 
-void remove_Replicated_Sentences() {
+void remove_replicated_sentences() {
     // Бежит по тексту и сравнивает предложения вложенными циклами. Прежде чем начать посимвольное сравнение проверяется совпадение кол-ва символов и кол-ва слов.
     for (int i = 0; i < text.sentences_cnt; i++) {
         Sentence cur_sentence = text.arr[i];
@@ -95,10 +122,10 @@ void remove_Replicated_Sentences() {
             Sentence next_sentence = text.arr[j];
             if (cur_sentence.symb_cnt == next_sentence.symb_cnt && cur_sentence.word_cnt == next_sentence.word_cnt) {
                 // Если длина и кол-во слов совпали, то идет посимвольное сравнение
-                char *cur_string = string_Assemble(cur_sentence);
-                char *next_string = string_Assemble(next_sentence);
+                char *cur_string = string_assemble(cur_sentence);
+                char *next_string = string_assemble(next_sentence);
                 if (strcasecmp(cur_string, next_string) == 0) {
-                    remove_Sentence(next_sentence.pos);
+                    remove_sentence(next_sentence.pos);
                     text.sentences_cnt--;
                     j--; // Так как одно предложение удалилось, то если инкрементировать итератор, следующее за ним будет пропускаться.
                 }
@@ -107,8 +134,41 @@ void remove_Replicated_Sentences() {
     }
 }
 
+void remove_even_sentences() {
+    // Удаляет все четные по счету предложения в которых четное кол-во слов.
+    int shift = 0;
+    for (int i = 0; i < text.sentences_cnt; i++) {
+        Sentence sentence = text.arr[i];
+        if ((sentence.pos + 1 + shift) % 2 == 0 && sentence.word_cnt % 2 == 0) {
+            remove_sentence(sentence.pos);
+            shift++;
+            i--;
+            text.sentences_cnt--;
+        }
+    }
+}
 
-Word word_Initialization() {
+int uppercase_cmp(const void* value1, const void* value2){
+    Word word1 = *(Word*)value1;
+    Word word2 = *(Word*)value2;
+    return (word1.upcase_cnt - word2.upcase_cnt);
+}
+
+void uppercase_sort() {
+    for (int i = 0; i < text.sentences_cnt; i++) {
+        qsort(text.arr[i].words, text.arr[i].word_cnt, sizeof(Word), uppercase_cmp);
+    }
+}
+
+void less_then_three() {
+    ;
+}
+
+void max_len_word_sort() {
+    ;
+}
+
+Word word_initialization() {
     Word word;
     word.len = 0;
     word.starts_with_num = 0;
@@ -117,7 +177,7 @@ Word word_Initialization() {
     return word;
 }
 
-Sentence sentence_Initialization(int sentence_pos) {
+Sentence sentence_initialization(int sentence_pos) {
     Sentence sentence;
     sentence.pos = sentence_pos;
     sentence.word_cnt = 0;
@@ -125,27 +185,27 @@ Sentence sentence_Initialization(int sentence_pos) {
     return sentence;
 }
 
-void *memory_Allocate(void *array, int len, int size) {
+void *memory_allocate(void *array, int len, int size) {
     if (len == 0) array = calloc(len + 1, size);
     else array = realloc(array, (len + 2) * size);
     return array;
 }
 
-void input_Text() {
+void input_text() {
     // Фукция ввода. Алгоритм работы: посимвольно считывает поток ввода, записывает слова в структуру Word и сохраняет их
     // в массив. Если встречает точку, то создает структуру Sentence, передает ей этот массив и другие аргументы.
     // Sentence сразу записывается в массив структуры Text.
     int sentences_cnt = 0;
-    Sentence *sentences_arr = memory_Allocate(sentences_arr, sentences_cnt, sizeof(Sentence));
+    Sentence *sentences_arr = memory_allocate(sentences_arr, sentences_cnt, sizeof(Sentence));
 
     // Создаем структуру слова, инициализируем начальные значения
-    Word word = word_Initialization();
+    Word word = word_initialization();
 
     int word_cnt = 0;
-    Word *words_arr = memory_Allocate(words_arr, word_cnt, sizeof(Word));
+    Word *words_arr = memory_allocate(words_arr, word_cnt, sizeof(Word));
 
     // Создаем структуру предложения, инициализируем начальные значения
-    Sentence sentence = sentence_Initialization(sentences_cnt);
+    Sentence sentence = sentence_initialization(sentences_cnt);
 
     // Массив и переменная для запоминания местоположения запятых
     Comma_Array commas;
@@ -164,7 +224,7 @@ void input_Text() {
             c = ' ';
         }
         if (c == ',') {
-            commas.comma_positions = memory_Allocate(commas.comma_positions, commas.count, sizeof(int));
+            commas.comma_positions = memory_allocate(commas.comma_positions, commas.count, sizeof(int));
             commas.comma_positions[commas.count] = char_pos;
             commas.count++;
         } else if (c == ' ') {
@@ -176,15 +236,15 @@ void input_Text() {
                 sentence.symb_cnt--;
                 continue;
             } else {
-                if (isdigit(word.arr[word.len])) {
+                if (isdigit(word.arr[word.len - 1])) {
                     word.ends_with_num = 1;
                 }
 
                 // Записываем слово в структуру предложения
-                words_arr = memory_Allocate(words_arr, word_cnt, sizeof(Word));
+                words_arr = memory_allocate(words_arr, word_cnt, sizeof(Word));
                 words_arr[word_cnt] = word;
                 word_cnt++;
-                word = word_Initialization();
+                word = word_initialization();
             }
 
             // Если была точка (конец предложения)
@@ -196,16 +256,16 @@ void input_Text() {
                 sentence.comma_indexes = commas.comma_positions;
 
                 // Записываем в структуру текста
-                sentences_arr = memory_Allocate(sentences_arr, sentences_cnt, sizeof(Sentence));
+                sentences_arr = memory_allocate(sentences_arr, sentences_cnt, sizeof(Sentence));
                 sentences_arr[sentences_cnt] = sentence;
                 sentences_cnt++;
 
                 // Очищаем память
 
                 // Обновляем переменные
-                sentence = sentence_Initialization(sentences_cnt);
+                sentence = sentence_initialization(sentences_cnt);
                 word_cnt = 0;
-                words_arr = memory_Allocate(words_arr, word_cnt, sizeof(Word));
+                words_arr = memory_allocate(words_arr, word_cnt, sizeof(Word));
                 end_sentence_flag = 2;
                 char_pos = -1;
             }
@@ -219,7 +279,7 @@ void input_Text() {
             }
 
             // Записываем символ в word.arr - строку.
-            word.arr = memory_Allocate(word.arr, word.len, sizeof(char));
+            word.arr = memory_allocate(word.arr, word.len, sizeof(char));
             word.arr[word.len] = c;
             word.arr[word.len + 1] = '\0';
             word.len++;
