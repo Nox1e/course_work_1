@@ -4,7 +4,6 @@
 #include <ctype.h>
 #include <locale.h>
 
-// TODO: Реализовать ввод запятых.
 // TODO: Написать очистку памяти.
 
 char *string_assemble();
@@ -40,6 +39,7 @@ struct Comma_Array {
 struct Sentence {
     struct Word *words;
     int *comma_indexes;
+    int comma_count;
     int word_cnt;
     int symb_cnt;
     int pos;
@@ -90,12 +90,21 @@ char *string_assemble(Sentence sentence) {
     // Функция, которая будет собирать предложение в виде строки из массива слов структуры Sentence
     char *str = calloc(sentence.symb_cnt + 2, sizeof(char));
     int counter = -1;
+    int words_used = 0;
     for (int i = 0; i < sentence.word_cnt; i++) {
         Word word = sentence.words[i];
         for (int j = 0; j < word.len; j++) {
             str[++counter] = word.arr[j];
         }
+        // Ввожу запятую, если нужно
+        for (int k = 0; k < sentence.comma_count; k++){
+            if (words_used > sentence.comma_indexes[k]) break;
+            if (words_used == sentence.comma_indexes[k]){
+                str[++counter] = ',';
+            }
+        }
         str[++counter] = ' ';
+        words_used++;
     }
     str[counter] = '.';
     str[++counter] = '\0';
@@ -161,7 +170,18 @@ void uppercase_sort() {
 }
 
 void less_then_three() {
-    ;
+    char less_then_three_str[12];
+    int str_len = sprintf(less_then_three_str, "Less Then 3");
+    for (int i = 0; i < text.sentences_cnt; i++){
+        for (int j = 0; j < text.arr[i].word_cnt; j++){
+            Word *word = &text.arr[i].words[j];
+            if (word->len <= 3){
+                word->arr = realloc(word->arr, str_len*sizeof(char));
+                strcpy(word->arr, less_then_three_str);
+                word->len = str_len;
+            }
+        }
+    }
 }
 
 void max_len_word_sort() {
@@ -225,7 +245,7 @@ void input_text() {
         }
         if (c == ',') {
             commas.comma_positions = memory_allocate(commas.comma_positions, commas.count, sizeof(int));
-            commas.comma_positions[commas.count] = char_pos;
+            commas.comma_positions[commas.count] = word_cnt;
             commas.count++;
         } else if (c == ' ') {
             // Здесь нужно проверять последний символ слова на соответствие цифре (ends_with_num)
@@ -254,6 +274,7 @@ void input_text() {
                 sentence.word_cnt = word_cnt;
                 sentence.pos = sentences_cnt;
                 sentence.comma_indexes = commas.comma_positions;
+                sentence.comma_count = commas.count;
 
                 // Записываем в структуру текста
                 sentences_arr = memory_allocate(sentences_arr, sentences_cnt, sizeof(Sentence));
