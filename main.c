@@ -4,24 +4,6 @@
 #include <ctype.h>
 #include <locale.h>
 
-// TODO: Написать очистку памяти.
-
-char *string_assemble();
-
-void remove_replicated_sentences();
-
-void remove_Sentence();
-
-void input_text();
-
-void remove_even_sentences();
-
-void uppercase_sort();
-
-void less_then_three();
-
-void max_len_word_sort();
-
 struct Word {
     char *arr;
     int len;
@@ -54,36 +36,84 @@ typedef struct Sentence Sentence;
 typedef struct Word Word;
 typedef struct Comma_Array Comma_Array;
 
+void free_sentence_memory(Sentence *sentence);
+
+char *string_assemble(Sentence sentence);
+
+void remove_replicated_sentences();
+
+void *memory_allocate(void *array, int len, int size);
+
+void remove_even_sentences();
+
+void uppercase_sort();
+
+void less_then_three();
+
+void max_len_word_sort();
+
+void input_text();
+
 struct Text text;
 
-//
+
 int main() {
+    setlocale(LC_ALL, "");
+    wprintf(L"Введите текст:\n");
     input_text();
     remove_replicated_sentences();
-    setlocale(LC_ALL, "RUS");
     wprintf(L"Выберите одно из доступных действий:\n"
             "1) Удалить все четные по счету предложения в которых четное количество слов.\n"
             "2) Отсортировать все слова в предложениях по возрастанию количества букв в верхнем регистре в слове.\n"
             "3) Заменить все слова в тексте длина которых не более 3 символов на подстроку “Less Then 3”.\n"
-            "4) Найти в каждом предложении строку максимальной длины, которая начинается и заканчивается цифрой. Вывести найденные подстроки по убыванию длины подстроки.\n");
+            "4) Найти в каждом предложении строку максимальной длины, которая начинается и заканчивается цифрой. Вывести найденные подстроки по убыванию длины подстроки.\n"
+            "5) Выход из программы. \n");
     int user_choice;
     scanf("%d", &user_choice);
 
     switch (user_choice) {
         case 1:
             remove_even_sentences();
+            break;
         case 2:
             uppercase_sort();
+            break;
         case 3:
             less_then_three();
+            break;
         case 4:
             max_len_word_sort();
+            break;
+        case 5:
+            for (int i = 0; i < text.sentences_cnt; i++) {
+                free_sentence_memory(&text.arr[i]);
+            }
+            text.arr = NULL;
+            exit(0);
     }
 
-    for (int i = 0; i < text.sentences_cnt; i++) {
-        printf("%s ", string_assemble(text.arr[i]));
+    // Вывод текста после обработки
+    if (user_choice != 4) {
+        for (int i = 0; i < text.sentences_cnt; i++) {
+            printf("%s ", string_assemble(text.arr[i]));
+        }
     }
+
+    // Очищение памяти
+    for (int i = 0; i < text.sentences_cnt; i++) {
+        free_sentence_memory(&text.arr[i]);
+    }
+    text.arr = NULL;
     return 0;
+}
+
+void free_sentence_memory(Sentence *sentence) {
+    for (int i = 0; i < sentence->word_cnt; i++) {
+        free(sentence->words[i].arr);
+        sentence->words[i].arr = NULL;
+    }
+    free(sentence->words);
+    sentence->words = NULL;
 }
 
 char *string_assemble(Sentence sentence) {
@@ -97,9 +127,9 @@ char *string_assemble(Sentence sentence) {
             str[++counter] = word.arr[j];
         }
         // Ввожу запятую, если нужно
-        for (int k = 0; k < sentence.comma_count; k++){
+        for (int k = 0; k < sentence.comma_count; k++) {
             if (words_used > sentence.comma_indexes[k]) break;
-            if (words_used == sentence.comma_indexes[k]){
+            if (words_used == sentence.comma_indexes[k]) {
                 str[++counter] = ',';
             }
         }
@@ -113,9 +143,9 @@ char *string_assemble(Sentence sentence) {
 
 void remove_sentence(int pos) {
     // Удаляет предложение из текста
-    // TODO: (еще очищать память)
-
+    free_sentence_memory(&text.arr[pos]);
     memmove(text.arr + pos, text.arr + pos + 1, (text.sentences_cnt - pos) * sizeof(Sentence));
+    text.sentences_cnt--;
 
     // Сдвигает позиции всех следующих предложений
     for (int i = pos; i < text.sentences_cnt; i++) {
@@ -135,7 +165,6 @@ void remove_replicated_sentences() {
                 char *next_string = string_assemble(next_sentence);
                 if (strcasecmp(cur_string, next_string) == 0) {
                     remove_sentence(next_sentence.pos);
-                    text.sentences_cnt--;
                     j--; // Так как одно предложение удалилось, то если инкрементировать итератор, следующее за ним будет пропускаться.
                 }
             }
@@ -152,14 +181,13 @@ void remove_even_sentences() {
             remove_sentence(sentence.pos);
             shift++;
             i--;
-            text.sentences_cnt--;
         }
     }
 }
 
-int uppercase_cmp(const void* value1, const void* value2){
-    Word word1 = *(Word*)value1;
-    Word word2 = *(Word*)value2;
+int uppercase_cmp(const void *value1, const void *value2) {
+    Word word1 = *(Word *) value1;
+    Word word2 = *(Word *) value2;
     return (word1.upcase_cnt - word2.upcase_cnt);
 }
 
@@ -170,22 +198,80 @@ void uppercase_sort() {
 }
 
 void less_then_three() {
-    char less_then_three_str[12];
-    int str_len = sprintf(less_then_three_str, "Less Then 3");
-    for (int i = 0; i < text.sentences_cnt; i++){
-        for (int j = 0; j < text.arr[i].word_cnt; j++){
-            Word *word = &text.arr[i].words[j];
-            if (word->len <= 3){
-                word->arr = realloc(word->arr, str_len*sizeof(char));
-                strcpy(word->arr, less_then_three_str);
-                word->len = str_len;
+    char less_then_three_str[12] = "Less Then 3";
+    int new_len = 11;
+    for (int i = 0; i < text.sentences_cnt; i++) {
+        Sentence *sentence = &text.arr[i];
+        for (int j = 0; j < sentence->word_cnt; j++) {
+            Word *word = &sentence->words[j];
+            if (word->len <= 3) {
+                Word new_word;
+                new_word.arr = calloc(12, sizeof(char));
+
+                strncpy(new_word.arr, less_then_three_str, new_len);
+
+                new_word.arr[new_len] = '\0';
+                new_word.len = new_len;
+                new_word.upcase_cnt = 2;
+                new_word.ends_with_num = 0;
+                new_word.starts_with_num = 0;
+
+                sentence->symb_cnt += new_len - text.arr[i].words[j].len;
+                *word = new_word;
             }
         }
     }
+
+}
+
+int str_len_cmp(const void *value1, const void *value2) {
+    return strlen(*(char **) value2) - strlen(*(char **) value1);
 }
 
 void max_len_word_sort() {
-    ;
+    char **strings = malloc(text.sentences_cnt * sizeof(char *));
+    int processed_now = 0;
+    int cur_len = 0;
+    char *string = memory_allocate(string, cur_len, sizeof(char));
+    // Заполняем массив строк, начинающихся и кончающихся цифрами.
+    for (int i = 0; i < text.sentences_cnt; i++) {
+        Sentence cur_sentence = text.arr[i];
+        char *str_sentence = string_assemble(cur_sentence);
+        int first_num_index = -1;
+        int last_num_index = -1;
+        for (int j = 0; j < cur_sentence.symb_cnt; j++) {
+            if (isdigit(str_sentence[j])) {
+                if (first_num_index == -1) {
+                    first_num_index = j;
+                } else {
+                    last_num_index = j;
+                }
+            }
+        }
+        if (last_num_index == -1) {
+            continue;
+        } else {
+            for (int k = first_num_index; k < last_num_index + 1; k++) {
+                string[cur_len] = str_sentence[k];
+                cur_len++;
+                string = memory_allocate(string, cur_len, sizeof(char));
+            }
+        }
+        string[cur_len] = '\0';
+        //strings[processed_now] = string;
+        strings[processed_now] = calloc(cur_len + 1, sizeof(char));
+        strcpy(strings[processed_now], string);
+        processed_now++;
+        cur_len = 0;
+    }
+    printf("\n");
+    // Сортировка массива
+    qsort(strings, processed_now, sizeof(char *), str_len_cmp);
+    for (int i = 0; i < processed_now; i++) {
+        if (strlen(strings[i]) >= 1) {
+            printf("%s. ", strings[i]);
+        }
+    }
 }
 
 Word word_initialization() {
@@ -194,6 +280,7 @@ Word word_initialization() {
     word.starts_with_num = 0;
     word.ends_with_num = 0;
     word.upcase_cnt = 0;
+    word.arr = NULL;
     return word;
 }
 
@@ -207,14 +294,14 @@ Sentence sentence_initialization(int sentence_pos) {
 
 void *memory_allocate(void *array, int len, int size) {
     if (len == 0) array = calloc(len + 1, size);
-    else array = realloc(array, (len + 2) * size);
+    else array = realloc(array, (len + 1) * size);
     return array;
 }
 
 void input_text() {
     // Фукция ввода. Алгоритм работы: посимвольно считывает поток ввода, записывает слова в структуру Word и сохраняет их
     // в массив. Если встречает точку, то создает структуру Sentence, передает ей этот массив и другие аргументы.
-    // Sentence сразу записывается в массив структуры Text.
+    // Sentence сразу записывается в массив предложений sentences_arr, а по окончании ввода - в структуру Text.
     int sentences_cnt = 0;
     Sentence *sentences_arr = memory_allocate(sentences_arr, sentences_cnt, sizeof(Sentence));
 
@@ -231,7 +318,6 @@ void input_text() {
     Comma_Array commas;
     commas.count = 0;
     commas.comma_positions = calloc(commas.count + 1, sizeof(int));
-    int char_pos = 0;
 
     int end_sentence_flag = 0;
     char c = getchar();
@@ -244,23 +330,24 @@ void input_text() {
             c = ' ';
         }
         if (c == ',') {
+            // Запоминаем позицию запятой (порядковый номер слова в предложении, после которого идет запятая)
             commas.comma_positions = memory_allocate(commas.comma_positions, commas.count, sizeof(int));
             commas.comma_positions[commas.count] = word_cnt;
             commas.count++;
         } else if (c == ' ') {
-            // Здесь нужно проверять последний символ слова на соответствие цифре (ends_with_num)
-            // А еще записывать слово в предложение
             if (end_sentence_flag == 2) { // убирает лишний пробел после точки
                 c = getchar();
                 end_sentence_flag = 0;
                 sentence.symb_cnt--;
                 continue;
             } else {
+                // Проверяем последний символ слова на соответствие цифре и записываем слово в массив слов.
                 if (isdigit(word.arr[word.len - 1])) {
                     word.ends_with_num = 1;
                 }
 
                 // Записываем слово в структуру предложения
+                word.arr[word.len] = '\0';
                 words_arr = memory_allocate(words_arr, word_cnt, sizeof(Word));
                 words_arr[word_cnt] = word;
                 word_cnt++;
@@ -276,19 +363,18 @@ void input_text() {
                 sentence.comma_indexes = commas.comma_positions;
                 sentence.comma_count = commas.count;
 
-                // Записываем в структуру текста
+                // Записываем в массив предложений
                 sentences_arr = memory_allocate(sentences_arr, sentences_cnt, sizeof(Sentence));
                 sentences_arr[sentences_cnt] = sentence;
                 sentences_cnt++;
-
-                // Очищаем память
 
                 // Обновляем переменные
                 sentence = sentence_initialization(sentences_cnt);
                 word_cnt = 0;
                 words_arr = memory_allocate(words_arr, word_cnt, sizeof(Word));
                 end_sentence_flag = 2;
-                char_pos = -1;
+                commas.count = 0;
+                commas.comma_positions = calloc(commas.count + 1, sizeof(int));
             }
         } else if (c != '.') {
             // Проверяем, на какой параметр может повлиять этот символ
@@ -302,12 +388,10 @@ void input_text() {
             // Записываем символ в word.arr - строку.
             word.arr = memory_allocate(word.arr, word.len, sizeof(char));
             word.arr[word.len] = c;
-            word.arr[word.len + 1] = '\0';
             word.len++;
         }
 
         c = getchar();
-        char_pos++;
     }
 
     text.sentences_cnt = sentences_cnt;
