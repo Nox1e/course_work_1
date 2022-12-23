@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <locale.h>
+#include <wchar.h>
 
 struct Word {
     char *arr;
@@ -15,7 +16,6 @@ struct Word {
 struct Comma_Array {
     int *comma_positions;
     int count;
-
 };
 
 struct Sentence {
@@ -67,7 +67,7 @@ int main() {
             "2) Отсортировать все слова в предложениях по возрастанию количества букв в верхнем регистре в слове.\n"
             "3) Заменить все слова в тексте длина которых не более 3 символов на подстроку “Less Then 3”.\n"
             "4) Найти в каждом предложении строку максимальной длины, которая начинается и заканчивается цифрой. Вывести найденные подстроки по убыванию длины подстроки.\n"
-            "5) Выход из программы. \n");
+            "Для выхода из программы введите любое другое значение. \n");
     int user_choice;
     scanf("%d", &user_choice);
 
@@ -84,12 +84,6 @@ int main() {
         case 4:
             max_len_word_sort();
             break;
-        case 5:
-            for (int i = 0; i < text.sentences_cnt; i++) {
-                free_sentence_memory(&text.arr[i]);
-            }
-            text.arr = NULL;
-            exit(0);
     }
 
     // Вывод текста после обработки
@@ -112,6 +106,8 @@ void free_sentence_memory(Sentence *sentence) {
         free(sentence->words[i].arr);
         sentence->words[i].arr = NULL;
     }
+    free(sentence->comma_indexes);
+    sentence->comma_indexes = NULL;
     free(sentence->words);
     sentence->words = NULL;
 }
@@ -121,16 +117,18 @@ char *string_assemble(Sentence sentence) {
     char *str = calloc(sentence.symb_cnt + 2, sizeof(char));
     int counter = -1;
     int words_used = 0;
+    int last_comma_index = -1;
     for (int i = 0; i < sentence.word_cnt; i++) {
         Word word = sentence.words[i];
         for (int j = 0; j < word.len; j++) {
             str[++counter] = word.arr[j];
         }
         // Ввожу запятую, если нужно
-        for (int k = 0; k < sentence.comma_count; k++) {
+        for (int k = last_comma_index + 1; k < sentence.comma_count; k++) {
             if (words_used > sentence.comma_indexes[k]) break;
             if (words_used == sentence.comma_indexes[k]) {
                 str[++counter] = ',';
+                last_comma_index = k;
             }
         }
         str[++counter] = ' ';
@@ -217,6 +215,7 @@ void less_then_three() {
                 new_word.starts_with_num = 0;
 
                 sentence->symb_cnt += new_len - text.arr[i].words[j].len;
+                free(word->arr);
                 *word = new_word;
             }
         }
@@ -258,13 +257,11 @@ void max_len_word_sort() {
             }
         }
         string[cur_len] = '\0';
-        //strings[processed_now] = string;
         strings[processed_now] = calloc(cur_len + 1, sizeof(char));
         strcpy(strings[processed_now], string);
         processed_now++;
         cur_len = 0;
     }
-    printf("\n");
     // Сортировка массива
     qsort(strings, processed_now, sizeof(char *), str_len_cmp);
     for (int i = 0; i < processed_now; i++) {
@@ -293,8 +290,8 @@ Sentence sentence_initialization(int sentence_pos) {
 }
 
 void *memory_allocate(void *array, int len, int size) {
-    if (len == 0) array = calloc(len + 1, size);
-    else array = realloc(array, (len + 1) * size);
+    if (len == 0) array = calloc(len + 2, size);
+    else array = realloc(array, (len + 2) * size);
     return array;
 }
 
@@ -346,7 +343,7 @@ void input_text() {
                     word.ends_with_num = 1;
                 }
 
-                // Записываем слово в структуру предложения
+                // Записываем слово в массив слов
                 word.arr[word.len] = '\0';
                 words_arr = memory_allocate(words_arr, word_cnt, sizeof(Word));
                 words_arr[word_cnt] = word;
@@ -390,7 +387,6 @@ void input_text() {
             word.arr[word.len] = c;
             word.len++;
         }
-
         c = getchar();
     }
 
